@@ -29,7 +29,7 @@
 
 1. The library already contains all the hardware drivers for `T-Watch`
 2. Using **TFT_eSPI** as the display driver, you can directly call **TFT_eSPI** through the construction object.
-3. Using **lvgl 7.0.0** as the display graphics framework, the driver method has been implemented, you only need to call lvgl api according to your own needs.
+3. Using **lvgl v7.3.1** as the display graphics framework, the driver method has been implemented, you only need to call lvgl api according to your own needs.
 4. For the use of lvgl please refer to **[lvgl docs](https://docs.lvgl.io/v7/en/html/)**
 
 
@@ -54,12 +54,18 @@
 
 <h2 align = "left">🔶 How to find the sample program</h2>
 
+* T-Watch
 - In the Arduino board select `TTGO T-Watch`
-- In the Arduino File -> Examples -> TTGO T-Watch
+- In the Arduino File -> Examples -> `TTGO_TWatch_Library`
+
+* LilyPi
+- In the Arduino board select `ESP32 Dev Module`
+- In the Arduino File -> Examples -> `TTGO_TWatch_Library`
 
  <h2 align = "left">🔶 Precautions</h2>
 
 - T-Watch-2019 : Since Twatch uses a special IO as the SD interface, please remove the SD card when downloading the program.
+- LilyPi       : Since Twatch uses a special IO as the SD interface, please remove the SD card when downloading the program.
 
 
  <h2 align = "left">🔷 Other</h2>
@@ -72,6 +78,8 @@
 
  <h2 align = "left">🔶 More interesting projects</h2>
 
+- [sharandac/My-TTGO-Watch](https://github.com/sharandac/My-TTGO-Watch)
+- [Micropython-twatch2020](https://y0no.fr/posts/micropython-ttgo-twatch2020/)
 - [Flight Recorder](https://github.com/lyusupov/SoftRF/wiki/Flight-Recorder)
 - [TTGO_T_Watch_Baidu_Rec](https://github.com/lixy123/TTGO_T_Watch_Baidu_Rec)
 - [TTGO_T_Watch_Alarm_Clock](https://github.com/lixy123/TTGO_T_Watch_Alarm_Clock)

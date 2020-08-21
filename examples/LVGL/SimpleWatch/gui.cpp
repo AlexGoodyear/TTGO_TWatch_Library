@@ -399,7 +399,6 @@ void setupGui()
 
     menuBtn = lv_imgbtn_create(mainBar, NULL);
 
-    lv_imgbtn_set_src(menuBtn, LV_BTN_STATE_ACTIVE, &menu);
     lv_imgbtn_set_src(menuBtn, LV_BTN_STATE_RELEASED, &menu);
     lv_imgbtn_set_src(menuBtn, LV_BTN_STATE_PRESSED, &menu);
     lv_imgbtn_set_src(menuBtn, LV_BTN_STATE_CHECKED_RELEASED, &menu);
@@ -429,6 +428,8 @@ static void updateTime()
     strftime(buf, sizeof(buf), "%H:%M", &info);
     lv_label_set_text(timeLabel, buf);
     lv_obj_align(timeLabel, NULL, LV_ALIGN_IN_TOP_MID, 0, 20);
+    TTGOClass *ttgo = TTGOClass::getWatch();
+    ttgo->rtc->syncToRtc();
 }
 
 void updateBatteryLevel()
@@ -739,7 +740,6 @@ public:
             lv_label_set_text(la1, cfg[i].name);
             i == 0 ? lv_obj_align(la1, NULL, LV_ALIGN_IN_TOP_LEFT, 30, 20) : lv_obj_align(la1, prev, LV_ALIGN_OUT_BOTTOM_MID, 0, 20);
             _sw[i] = lv_imgbtn_create(_swCont, NULL);
-            lv_imgbtn_set_src(_sw[i], LV_BTN_STATE_ACTIVE, &off);
             lv_imgbtn_set_src(_sw[i], LV_BTN_STATE_RELEASED, &off);
             lv_imgbtn_set_src(_sw[i], LV_BTN_STATE_PRESSED, &off);
             lv_imgbtn_set_src(_sw[i], LV_BTN_STATE_CHECKED_RELEASED, &off);
@@ -752,7 +752,6 @@ public:
         }
 
         _exitBtn = lv_imgbtn_create(_swCont, NULL);
-        lv_imgbtn_set_src(_exitBtn, LV_BTN_STATE_ACTIVE, &iexit);
         lv_imgbtn_set_src(_exitBtn, LV_BTN_STATE_RELEASED, &iexit);
         lv_imgbtn_set_src(_exitBtn, LV_BTN_STATE_PRESSED, &iexit);
         lv_imgbtn_set_src(_exitBtn, LV_BTN_STATE_CHECKED_RELEASED, &iexit);
@@ -795,7 +794,6 @@ public:
                     const void *src =  lv_imgbtn_get_src(sw, LV_BTN_STATE_RELEASED);
                     const void *dst = src == &off ? &on : &off;
                     bool en = src == &off;
-                    lv_imgbtn_set_src(sw, LV_BTN_STATE_ACTIVE, dst);
                     lv_imgbtn_set_src(sw, LV_BTN_STATE_RELEASED, dst);
                     lv_imgbtn_set_src(sw, LV_BTN_STATE_PRESSED, dst);
                     lv_imgbtn_set_src(sw, LV_BTN_STATE_CHECKED_RELEASED, dst);
@@ -814,7 +812,6 @@ public:
         if (index > _count)return;
         lv_obj_t *sw = _sw[index];
         const void *dst =  en ? &on : &off;
-        lv_imgbtn_set_src(sw, LV_BTN_STATE_ACTIVE, dst);
         lv_imgbtn_set_src(sw, LV_BTN_STATE_RELEASED, dst);
         lv_imgbtn_set_src(sw, LV_BTN_STATE_PRESSED, dst);
         lv_imgbtn_set_src(sw, LV_BTN_STATE_CHECKED_RELEASED, dst);
@@ -1146,60 +1143,6 @@ void wifi_kb_event_cb(Keyboard::kb_event_t event)
     }
 }
 
-static void wifi_sync_mbox_cb(lv_task_t *t)
-{
-    static  struct tm timeinfo;
-    bool ret = false;
-    static int retry = 0;
-    configTzTime(RTC_TIME_ZONE, "pool.ntp.org");
-    while (1) {
-        ret = getLocalTime(&timeinfo);
-        if (!ret) {
-            Serial.printf("get ntp fail,retry : %d \n", retry++);
-        } else {
-            //! del preload
-            delete pl;
-            pl = nullptr;
-
-            char format[256];
-            snprintf(format, sizeof(format), "Time acquisition is: %d-%d-%d/%d:%d:%d. Synchronize?", timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-            Serial.println(format);
-            delete task;
-            task = nullptr;
-
-            //! mbox
-            static const char *btns[] = {"Ok", "Cancel", ""};
-            mbox = new MBox;
-            mbox->create(format, [](lv_obj_t *obj, lv_event_t event) {
-                if (event == LV_EVENT_VALUE_CHANGED) {
-                    const char *txt =  lv_msgbox_get_active_btn_text(obj);
-                    if (!strcmp(txt, "Ok")) {
-
-                        //!sync to rtc
-                        struct tm *info =  (struct tm *)mbox->getData();
-                        Serial.printf("read use data = %d:%d:%d - %d:%d:%d \n", info->tm_year + 1900, info->tm_mon + 1, info->tm_mday, info->tm_hour, info->tm_min, info->tm_sec);
-
-                        TTGOClass *ttgo = TTGOClass::getWatch();
-                        ttgo->rtc->setDateTime(info->tm_year + 1900, info->tm_mon + 1, info->tm_mday, info->tm_hour, info->tm_min, info->tm_sec);
-                    } else if (!strcmp(txt, "Cancel")) {
-                        //!cancel
-                        // Serial.println("Cancel press");
-                    }
-                    delete mbox;
-                    mbox = nullptr;
-                    sw->hidden(false);
-                }
-            });
-            mbox->setBtn(btns);
-            mbox->setData(&timeinfo);
-            return;
-        }
-    }
-}
-
-
-
-
 void wifi_sw_event_cb(uint8_t index, bool en)
 {
     switch (index) {
@@ -1225,16 +1168,8 @@ void wifi_sw_event_cb(uint8_t index, bool en)
             Serial.println("WiFi is no connect");
             return;
         } else {
-            if (task != nullptr) {
-                Serial.println("task is runing ...");
-                return;
-            }
-            task = new Task;
-            task->create(wifi_sync_mbox_cb);
-            sw->hidden();
-            pl = new Preload;
-            pl->create();
-            pl->align(bar.self(), LV_ALIGN_OUT_BOTTOM_MID);
+            configTzTime(RTC_TIME_ZONE, "pool.ntp.org");
+            sw->hidden(false);
         }
         break;
     default:
